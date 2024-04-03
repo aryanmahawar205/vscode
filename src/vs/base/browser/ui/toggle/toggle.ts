@@ -59,6 +59,7 @@ export class ToggleActionViewItem extends BaseActionViewItem {
 			inputActiveOptionBackground: options.toggleStyles?.inputActiveOptionBackground,
 			inputActiveOptionBorder: options.toggleStyles?.inputActiveOptionBorder,
 			inputActiveOptionForeground: options.toggleStyles?.inputActiveOptionForeground,
+			hoverDelegate: options.hoverDelegate
 		}));
 		this._register(this.toggle.onChange(() => this._action.checked = !!this.toggle && this.toggle.checked));
 	}
@@ -236,7 +237,7 @@ export class Checkbox extends Widget {
 	constructor(private title: string, private isChecked: boolean, styles: ICheckboxStyles) {
 		super();
 
-		this.checkbox = new Toggle({ title: this.title, isChecked: this.isChecked, icon: Codicon.check, actionClassName: 'monaco-checkbox', ...unthemedToggleStyles });
+		this.checkbox = this._register(new Toggle({ title: this.title, isChecked: this.isChecked, icon: Codicon.check, actionClassName: 'monaco-checkbox', ...unthemedToggleStyles }));
 
 		this.domNode = this.checkbox.domNode;
 

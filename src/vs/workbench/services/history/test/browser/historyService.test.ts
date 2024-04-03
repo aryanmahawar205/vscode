@@ -34,7 +34,7 @@ suite('HistoryService', function () {
 	const TEST_EDITOR_ID = 'MyTestEditorForEditorHistory';
 	const TEST_EDITOR_INPUT_ID = 'testEditorInputForHistoyService';
 
-	async function createServices(scope = GoScope.DEFAULT): Promise<[EditorPart, HistoryService, EditorService, ITextFileService, IInstantiationService]> {
+	async function createServices(scope = GoScope.DEFAULT): Promise<[EditorPart, HistoryService, EditorService, ITextFileService, IInstantiationService, TestConfigurationService]> {
 		const instantiationService = workbenchInstantiationService(undefined, disposables);
 
 		const part = await createEditorPart(instantiationService, disposables);
@@ -56,7 +56,7 @@ suite('HistoryService', function () {
 
 		const accessor = instantiationService.createInstance(TestServiceAccessor);
 
-		return [part, historyService, editorService, accessor.textFileService, instantiationService];
+		return [part, historyService, editorService, accessor.textFileService, instantiationService, configurationService];
 	}
 
 	const disposables = new DisposableStore();
@@ -109,28 +109,28 @@ suite('HistoryService', function () {
 
 		// [index.txt] | [>index.txt<] [other.html]
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource.toString());
 
 		await historyService.goBack();
 
 		// [>index.txt<] | [index.txt] [other.html]
 
-		assert.strictEqual(part.activeGroup.id, pane1?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane1?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource.toString());
 
 		await historyService.goForward();
 
 		// [index.txt] | [>index.txt<] [other.html]
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource.toString());
 
 		await historyService.goForward();
 
 		// [index.txt] | [index.txt] [>other.html<]
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), otherResource.toString());
 
 		return workbenchTeardown(instantiationService);
@@ -313,7 +313,7 @@ suite('HistoryService', function () {
 		// [one.txt] [>two.html<] | <empty>
 
 		const editorChangePromise = Event.toPromise(editorService.onDidActiveEditorChange);
-		pane1?.group?.moveEditor(pane1.input!, sideGroup);
+		pane1?.group.moveEditor(pane1.input!, sideGroup);
 		await editorChangePromise;
 
 		// [one.txt] | [>two.html<]
@@ -322,7 +322,7 @@ suite('HistoryService', function () {
 
 		// [>one.txt<] | [two.html]
 
-		assert.strictEqual(part.activeGroup.id, pane1?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane1?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource1.toString());
 
 		return workbenchTeardown(instantiationService);
@@ -341,7 +341,7 @@ suite('HistoryService', function () {
 
 		assert.notStrictEqual(pane1, pane2);
 
-		await pane1?.group?.closeAllEditors();
+		await pane1?.group.closeAllEditors();
 
 		// [>two.html<]
 
@@ -349,7 +349,7 @@ suite('HistoryService', function () {
 
 		// [>two.html<]
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource2.toString());
 
 		return workbenchTeardown(instantiationService);
@@ -545,7 +545,7 @@ suite('HistoryService', function () {
 		await historyService.goBack();
 		await historyService.goBack();
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource1.toString());
 
 		// [one.txt] [two.html] [>three.html<] | [>one.txt<] [two.html] [three.html]
@@ -556,7 +556,7 @@ suite('HistoryService', function () {
 		await historyService.goBack();
 		await historyService.goBack();
 
-		assert.strictEqual(part.activeGroup.id, pane1?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane1?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource1.toString());
 
 		return workbenchTeardown(instantiationService);
@@ -631,7 +631,7 @@ suite('HistoryService', function () {
 		const resource = toResource.call(this, '/path/index.txt');
 		const pane = await editorService.openEditor({ resource });
 
-		await pane?.group?.closeAllEditors();
+		await pane?.group.closeAllEditors();
 
 		const onDidActiveEditorChange = new DeferredPromise<void>();
 		disposables.add(editorService.onDidActiveEditorChange(e => {
@@ -660,12 +660,13 @@ suite('HistoryService', function () {
 			}
 		}
 
-		const [part, historyService, , , instantiationService] = await createServices();
+		const [part, historyService, , , instantiationService, configurationService] = await createServices();
+		configurationService.setUserConfiguration('search.exclude', '{ "**/node_modules/**": true }');
 
 		let history = historyService.getHistory();
 		assert.strictEqual(history.length, 0);
 
-		const input1 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar1'), TEST_EDITOR_INPUT_ID));
+		const input1 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar1/node_modules/test.txt'), TEST_EDITOR_INPUT_ID));
 		await part.activeGroup.openEditor(input1, { pinned: true });
 
 		const input2 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar2'), TEST_EDITOR_INPUT_ID));
@@ -692,6 +693,10 @@ suite('HistoryService', function () {
 		history = historyService.getHistory();
 		assert.strictEqual(history.length, 3);
 		assert.strictEqual(history[0].resource?.toString(), input4.resource.toString());
+
+		input1.dispose(); // disposing the editor will apply `search.exclude` rules
+		history = historyService.getHistory();
+		assert.strictEqual(history.length, 2);
 
 		return workbenchTeardown(instantiationService);
 	});

@@ -33,6 +33,8 @@ import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { ICodeEditor } from 'vs/editor/browser/editorBrowser';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ILogService } from 'vs/platform/log/common/log';
+import { ChatModel } from 'vs/workbench/contrib/chat/common/chatModel';
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 
 
 export type TelemetryData = {
@@ -55,23 +57,18 @@ export type TelemetryDataClassification = {
 	comment: 'Data about an interaction editor session';
 	extension: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The extension providing the data' };
 	rounds: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Number of request that were made' };
-	undos: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Requests that have been undone' };
-	edits: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Did edits happen while the session was active' };
-	unstashed: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'How often did this session become stashed and resumed' };
-	finishedByEdit: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Did edits cause the session to terminate' };
+	undos: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Requests that have been undone' };
+	edits: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Did edits happen while the session was active' };
+	unstashed: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'How often did this session become stashed and resumed' };
+	finishedByEdit: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Did edits cause the session to terminate' };
 	startTime: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'When the session started' };
 	endTime: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'When the session ended' };
 	editMode: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'What edit mode was choosen: live, livePreview, preview' };
-	acceptedHunks: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of accepted hunks' };
-	discardedHunks: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of discarded hunks' };
+	acceptedHunks: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Number of accepted hunks' };
+	discardedHunks: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Number of discarded hunks' };
 	responseTypes: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Comma separated list of response types like edits, message, mixed' };
 };
 
-export enum ExpansionState {
-	EXPANDED = 'expanded',
-	CROPPED = 'cropped',
-	NOT_CROPPED = 'not_cropped'
-}
 
 export class SessionWholeRange {
 
@@ -142,7 +139,6 @@ export class SessionWholeRange {
 export class Session {
 
 	private _lastInput: SessionPrompt | undefined;
-	private _lastExpansionState: ExpansionState | undefined;
 	private _isUnstashed: boolean = false;
 	private readonly _exchange: SessionExchange[] = [];
 	private readonly _startTime = new Date();
@@ -169,10 +165,11 @@ export class Session {
 		readonly session: IInlineChatSession,
 		readonly wholeRange: SessionWholeRange,
 		readonly hunkData: HunkData,
+		readonly chatModel: ChatModel,
 	) {
 		this.textModelNAltVersion = textModelN.getAlternativeVersionId();
 		this._teldata = {
-			extension: provider.debugName,
+			extension: ExtensionIdentifier.toKey(provider.extensionId),
 			startTime: this._startTime.toISOString(),
 			endTime: this._startTime.toISOString(),
 			edits: 0,
@@ -202,14 +199,6 @@ export class Session {
 	markUnstashed() {
 		this._teldata.unstashed! += 1;
 		this._isUnstashed = true;
-	}
-
-	get lastExpansionState(): ExpansionState | undefined {
-		return this._lastExpansionState;
-	}
-
-	set lastExpansionState(state: ExpansionState) {
-		this._lastExpansionState = state;
 	}
 
 	get textModelNSnapshotAltVersion(): number | undefined {
@@ -295,21 +284,11 @@ export class Session {
 
 export class SessionPrompt {
 
-	private _attempt: number = 0;
-
 	constructor(
 		readonly value: string,
+		readonly attempt: number,
+		readonly withIntentDetection: boolean,
 	) { }
-
-	get attempt() {
-		return this._attempt;
-	}
-
-	retry() {
-		const result = new SessionPrompt(this.value);
-		result._attempt = this._attempt + 1;
-		return result;
-	}
 }
 
 export class SessionExchange {
